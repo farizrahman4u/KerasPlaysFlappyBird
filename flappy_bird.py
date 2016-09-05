@@ -90,6 +90,8 @@ class FlappyBird(Game):
 		self.player_flap_acceleration =  -9
 		self.player_flapped = False
 		self.game_over = False
+		self.won = False
+		self.reward = 0
 
 	def play(self, action):
 		pygame.event.pump()
@@ -103,6 +105,7 @@ class FlappyBird(Game):
 			pipeMidPos = pipe['x'] + pipe_width / 2
 			if pipeMidPos <= playerMidPos < pipeMidPos + 4:
 				self.score += 1
+				self.reward = 1
 				sound('point')
 		if (self.looper_iter + 1) % 3 == 0:
 			self.player_idx = next(player_idx_gen)
@@ -128,6 +131,9 @@ class FlappyBird(Game):
 		self.game_over = check_crash({'x': self.player_x, 'y': self.player_y,
 							 'index': self.player_idx},
 							self.upper_pipes, self.lower_pipes)
+		if self.game_over:
+			if self.score:
+				self.won = True
 		screen.blit(images['background'], (0, 0))
 		for upper_pipe, lower_pipe in zip(self.upper_pipes, self.lower_pipes):
 			screen.blit(images['pipes'][0], (upper_pipe['x'], upper_pipe['y']))
@@ -147,22 +153,24 @@ class FlappyBird(Game):
 	def get_score(self):
 		if self.game_over:
 			return -1
-		if self.score:
-			return self.score
-		return 1
+		if self.reward:
+			self.reward = 0
+			return 1
+		return 0
 
 	def is_over(self):
 		return self.game_over
 
 	def is_won(self):
-		return self.score > 0
+		return self.won
 
 	def get_frame(self):
-		return np.resize(self.get_state(), (3, 80, 80)).sum(axis=0) / 3
+		weights = [0.2989, 0.5870, 0.1140]
+		return (np.cast['float'](np.resize(self.get_state(), (80, 80, 3))) * weights).sum(axis=2)/ 256.
 		return cv2.cvtColor(cv2.resize(self.get_state(), (80, 80)), cv2.COLOR_BGR2GRAY)
 
 	def draw(self):
-		return np.resize(self.get_state(), (3, 80, 80))
+		return np.resize(self.get_state(), (80, 80, 3))
 		return cv2.resize(self.get_state(), (80, 80))
 
 
