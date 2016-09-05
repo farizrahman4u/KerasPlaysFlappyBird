@@ -5,8 +5,22 @@ import pygame
 import pygame.surfarray as surfarray
 from pygame.locals import *
 from itertools import cycle
-from qlearning4k.games import Game
+from qlearning4k.games.game import Game
 
+
+
+
+# Global variables
+fps = 30
+screen_width  = 288
+screen_height = 512
+pygame.init()
+fps_clock = pygame.time.Clock()
+screen = pygame.display.set_mode((screen_width, screen_height))
+pygame.display.set_caption('Flappy Bird')
+pipe_gap = 100
+base_y = screen_height * 0.79
+player_idx_gen = cycle([0, 1, 2, 1])
 
 # Load images
 images = {}
@@ -29,22 +43,14 @@ hitmasks = {x : map(get_hitmask, images[x]) for x in ['player', 'pipes']}
 ext = '.wav' if 'win' in sys.platform else '.ogg'
 sound_names = ['die', 'hit', 'point', 'swoosh', 'wing']
 sounds = {sound_name : 'resources/sounds/' + sound_name + ext for sound_name in sound_names}
-# Global variables
-fps = 30
-screen_width  = 288
-screen_height = 512
-pygame.init()
-fps_clock = pygame.time.Clock()
-screen = pygame.display.set_mode((screen_width, screen_height))
-pygame.display.set_caption('Flappy Bird')
-pipe_gap = 100
-base_y = screen_height * 0.79
+
+
+
 player_width = images['player'][0].get_width()
 player_height = images['player'][0].get_height()
-pipe_width = images['pipe'][0].get_width()
-pipe_height = images['pipe'][0].get_height()
+pipe_width = images['pipes'][0].get_width()
+pipe_height = images['pipes'][0].get_height()
 background_height = images['background'].get_width()
-player_idx_gen = cycle([0, 1, 2, 1])
 
 
 class FlappyBird(Game):
@@ -94,7 +100,7 @@ class FlappyBird(Game):
 			self.player_idx = next(player_idx_gen)
 		self.looper_iter = (self.looper_iter + 1) % 30
 		self.base_x = -((-self.base_x + 100) % self.base_shift)
-		  if self.player_velocity_y < self.player_max_velocity and not self.player_flapped:
+		if self.player_velocity_y < self.player_max_velocity and not self.player_flapped:
 			self.player_velocity_y += self.player_acceleration_y
 		if self.player_flapped:
 			self.player_flapped = False
@@ -111,13 +117,13 @@ class FlappyBird(Game):
 		if self.upper_pipes[0]['x'] < -pipe_width:
 			self.upper_pipes.pop(0)
 			self.lower_pipes.pop(0)
-		self.game_over = checkCrash({'x': self.player_x, 'y': self.player_y,
+		self.game_over = check_crash({'x': self.player_x, 'y': self.player_y,
 							 'index': self.player_idx},
 							self.upper_pipes, self.lower_pipes)
 		screen.blit(images['background'], (0, 0))
 		for upper_pipe, lower_pipe in zip(self.upper_pipes, self.lower_pipes):
-			screen.blit(images['pipe'][0], (upper_pipe['x'], upper_pipe['y']))
-			screen.blit(images['pipe'][1], (lower_pipe['x'], lower_pipe['y']))
+			screen.blit(images['pipes'][0], (upper_pipe['x'], upper_pipe['y']))
+			screen.blit(images['pipes'][1], (lower_pipe['x'], lower_pipe['y']))
 		screen.blit(images['base'], (self.base_x, base_y))
 		screen.blit(images['player'][self.player_idx],
 					(self.player_x, self.player_y))
@@ -126,7 +132,7 @@ class FlappyBird(Game):
 		fps_clock.tick(fps)
 
 	def get_state(self):
-		if not hasattr(self, state):
+		if not hasattr(self, 'state'):
 			self.play(0)
 		return self.state
 
@@ -140,9 +146,11 @@ class FlappyBird(Game):
 		return self.score > 5
 
 	def get_frame(self):
+		return np.resize(self.get_state(), (3, 80, 80)).sum(axis=0) / 3
 		return cv2.cvtColor(cv2.resize(self.get_state(), (80, 80)), cv2.COLOR_BGR2GRAY)
 
 	def draw(self):
+		return np.resize(self.get_state(), (3, 80, 80))
 		return cv2.resize(self.get_state(), (80, 80))
 
 
@@ -153,7 +161,7 @@ def get_random_pipe():
 	return [{'x': pipe_x, 'y': rand_gap - pipe_height}, {'x': pipe_x, 'y': rand_gap + pipe_gap}]
 
 
-def check_crash(player, upperPipes, lowerPipes):
+def check_crash(player, upper_pipes, lower_pipes):
 	pi = player['index']
 	player['w'] = images['player'][0].get_width()
 	player['h'] = images['player'][0].get_height()
@@ -165,8 +173,8 @@ def check_crash(player, upperPipes, lowerPipes):
 			upper_pipe_rect = pygame.Rect(upper_pipe['x'], upper_pipe['y'], pipe_width, pipe_height)
 			lower_pipe_rect = pygame.Rect(lower_pipe['x'], lower_pipe['y'], pipe_width, pipe_height)
 			player_hit_mask = hitmasks['player'][pi]
-			upper_hit_mask = hitmasks['pipe'][0]
-			lower_hit_mask = hitmasks['pipe'][1]
+			upper_hit_mask = hitmasks['pipes'][0]
+			lower_hit_mask = hitmasks['pipes'][1]
 			upper_collided = pixel_collision(player_rect, upper_pipe_rect, player_hit_mask, upper_hit_mask)
 			lower_collided = (player_rect, lower_pipe_rect, player_hit_mask, lower_hit_mask)
 			return upper_collided or lower_collided
