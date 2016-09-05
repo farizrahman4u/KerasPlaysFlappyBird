@@ -10,7 +10,7 @@ from qlearning4k.games.game import Game
 
 
 
-# Global variables
+enable_sounds = True
 fps = 30
 screen_width  = 288
 screen_height = 512
@@ -42,9 +42,11 @@ hitmasks = {x : map(get_hitmask, images[x]) for x in ['player', 'pipes']}
 # Load sounds
 ext = '.wav' if 'win' in sys.platform else '.ogg'
 sound_names = ['die', 'hit', 'point', 'swoosh', 'wing']
-sounds = {sound_name : 'resources/sounds/' + sound_name + ext for sound_name in sound_names}
+sounds = {sound_name : pygame.mixer.Sound('resources/sounds/' + sound_name + ext) for sound_name in sound_names}
 
-
+def sound(sound_name):
+	if enable_sounds:
+		sounds[sound_name].play()
 
 player_width = images['player'][0].get_width()
 player_height = images['player'][0].get_height()
@@ -55,7 +57,11 @@ background_height = images['background'].get_width()
 
 class FlappyBird(Game):
 	
-	def __init__(self):
+	def __init__(self, frame_rate=30, sounds=True):
+		global enable_sounds
+		global fps
+		fps = frame_rate
+		enable_sounds = sounds
 		self.reset()
 
 	@property
@@ -88,6 +94,7 @@ class FlappyBird(Game):
 	def play(self, action):
 		pygame.event.pump()
 		if action is 1:
+			sound('wing')
 			if self.player_y > -2 * player_height:
 				self.player_velocity_y = self.player_flap_acceleration
 				self.player_flapped = True
@@ -95,7 +102,8 @@ class FlappyBird(Game):
 		for pipe in self.upper_pipes:
 			pipeMidPos = pipe['x'] + pipe_width / 2
 			if pipeMidPos <= playerMidPos < pipeMidPos + 4:
-				self.score += 1   			
+				self.score += 1
+				sound('point')
 		if (self.looper_iter + 1) % 3 == 0:
 			self.player_idx = next(player_idx_gen)
 		self.looper_iter = (self.looper_iter + 1) % 30
@@ -137,13 +145,17 @@ class FlappyBird(Game):
 		return self.state
 
 	def get_score(self):
-		return self.score
+		if self.game_over:
+			return -1
+		if self.score:
+			return self.score
+		return 1
 
 	def is_over(self):
 		return self.game_over
 
 	def is_won(self):
-		return self.score > 5
+		return self.score > 0
 
 	def get_frame(self):
 		return np.resize(self.get_state(), (3, 80, 80)).sum(axis=0) / 3
@@ -166,6 +178,8 @@ def check_crash(player, upper_pipes, lower_pipes):
 	player['w'] = images['player'][0].get_width()
 	player['h'] = images['player'][0].get_height()
 	if player['y'] + player['h'] >= base_y - 1:
+		sound('hit')
+		sound('die')
 		return True
 	else:
 		player_rect = pygame.Rect(player['x'], player['y'], player['w'], player['h'])
@@ -176,8 +190,12 @@ def check_crash(player, upper_pipes, lower_pipes):
 			upper_hit_mask = hitmasks['pipes'][0]
 			lower_hit_mask = hitmasks['pipes'][1]
 			upper_collided = pixel_collision(player_rect, upper_pipe_rect, player_hit_mask, upper_hit_mask)
-			lower_collided = (player_rect, lower_pipe_rect, player_hit_mask, lower_hit_mask)
-			return upper_collided or lower_collided
+			lower_collided = pixel_collision(player_rect, lower_pipe_rect, player_hit_mask, lower_hit_mask)
+			collided = upper_collided or lower_collided
+			if collided:
+				sound('hit')
+			return collided
+
 
 def pixel_collision(rect1, rect2, hitmask1, hitmask2):
 	rect = rect1.clip(rect2)
