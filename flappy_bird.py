@@ -85,7 +85,7 @@ class FlappyBird(Game):
 		self.pipe_velocity_x = -4
 		self.player_velocity_y    =  0
 		self.player_max_velocity =  10
-		self.playerMinVelY =  -8
+		self.player_min_velocity =  -8
 		self.player_acceleration_y    =   1
 		self.player_flap_acceleration =  -9
 		self.player_flapped = False
